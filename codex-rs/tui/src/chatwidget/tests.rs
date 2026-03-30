@@ -1467,19 +1467,7 @@ async fn interrupted_turn_restore_keeps_active_mode_for_resubmission() {
 
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
-    match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            collaboration_mode: Some(CollaborationMode { mode, .. }),
-            personality,
-            ..
-        } => {
-            assert_eq!(mode, expected_mode);
-            assert_eq!(personality, Some(Personality::pragmatic()));
-        }
-        other => {
-            panic!("expected Op::UserTurn with active mode, got {other:?}")
-        }
-    }
+    assert_submit_op_mode_and_pragmatic_personality(next_submit_op(&mut op_rx), expected_mode);
     assert_eq!(chat.active_collaboration_mode_kind(), expected_mode);
 }
 
@@ -2222,6 +2210,20 @@ fn next_submit_op(op_rx: &mut tokio::sync::mpsc::UnboundedReceiver<Op>) -> Op {
     }
 }
 
+fn assert_submit_op_mode_and_pragmatic_personality(op: Op, expected_mode: ModeKind) {
+    match op {
+        Op::UserTurn {
+            collaboration_mode: Some(CollaborationMode { mode, .. }),
+            personality,
+            ..
+        } => {
+            assert_eq!(mode, expected_mode);
+            assert_eq!(personality, Some(Personality::pragmatic()));
+        }
+        other => panic!("expected Op::UserTurn, got {other:?}"),
+    }
+}
+
 fn next_interrupt_op(op_rx: &mut tokio::sync::mpsc::UnboundedReceiver<Op>) {
     loop {
         match op_rx.try_recv() {
@@ -2762,20 +2764,7 @@ async fn submit_user_message_with_mode_sets_coding_collaboration_mode() {
         .expect("expected default collaboration mode");
     chat.submit_user_message_with_mode("Implement the plan.".to_string(), default_mode);
 
-    match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            collaboration_mode:
-                Some(CollaborationMode {
-                    mode: ModeKind::Default,
-                    ..
-                }),
-            personality,
-            ..
-        } => assert_eq!(personality, Some(Personality::pragmatic())),
-        other => {
-            panic!("expected Op::UserTurn with default collab mode, got {other:?}")
-        }
-    }
+    assert_submit_op_mode_and_pragmatic_personality(next_submit_op(&mut op_rx), ModeKind::Default);
 }
 
 #[tokio::test]
@@ -3222,20 +3211,7 @@ async fn submit_user_message_with_mode_allows_same_mode_during_running_turn() {
 
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Plan);
     assert!(chat.queued_user_messages.is_empty());
-    match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            collaboration_mode:
-                Some(CollaborationMode {
-                    mode: ModeKind::Plan,
-                    ..
-                }),
-            personality,
-            ..
-        } => assert_eq!(personality, Some(Personality::pragmatic())),
-        other => {
-            panic!("expected Op::UserTurn with plan collab mode, got {other:?}")
-        }
-    }
+    assert_submit_op_mode_and_pragmatic_personality(next_submit_op(&mut op_rx), ModeKind::Plan);
 }
 
 #[tokio::test]
@@ -3256,19 +3232,7 @@ async fn submit_user_message_with_mode_submits_when_plan_stream_is_not_active() 
 
     assert_eq!(chat.active_collaboration_mode_kind(), expected_mode);
     assert!(chat.queued_user_messages.is_empty());
-    match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            collaboration_mode: Some(CollaborationMode { mode, .. }),
-            personality,
-            ..
-        } => {
-            assert_eq!(mode, expected_mode);
-            assert_eq!(personality, Some(Personality::pragmatic()));
-        }
-        other => {
-            panic!("expected Op::UserTurn with default collab mode, got {other:?}")
-        }
-    }
+    assert_submit_op_mode_and_pragmatic_personality(next_submit_op(&mut op_rx), expected_mode);
 }
 
 #[tokio::test]
