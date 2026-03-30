@@ -5983,10 +5983,7 @@ async fn enter_submits_when_plan_stream_is_not_active() {
 
     assert!(chat.queued_user_messages.is_empty());
     match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            personality: Some(Personality::Pragmatic),
-            ..
-        } => {}
+        Op::UserTurn { personality, .. } if personality == Some(Personality::pragmatic()) => {}
         other => panic!("expected Op::UserTurn, got {other:?}"),
     }
 }
@@ -6836,9 +6833,9 @@ async fn collab_slash_command_opens_picker_and_updates_mode() {
                     mode: ModeKind::Default,
                     ..
                 }),
-            personality: Some(Personality::Pragmatic),
+            personality,
             ..
-        } => {}
+        } if personality == Some(Personality::pragmatic()) => {}
         other => {
             panic!("expected Op::UserTurn with code collab mode, got {other:?}")
         }
@@ -6854,9 +6851,9 @@ async fn collab_slash_command_opens_picker_and_updates_mode() {
                     mode: ModeKind::Default,
                     ..
                 }),
-            personality: Some(Personality::Pragmatic),
+            personality,
             ..
-        } => {}
+        } if personality == Some(Personality::pragmatic()) => {}
         other => {
             panic!("expected Op::UserTurn with code collab mode, got {other:?}")
         }
@@ -7077,9 +7074,9 @@ async fn collab_mode_is_sent_after_enabling() {
                     mode: ModeKind::Default,
                     ..
                 }),
-            personality: Some(Personality::Pragmatic),
+            personality,
             ..
-        } => {}
+        } if personality == Some(Personality::pragmatic()) => {}
         other => {
             panic!("expected Op::UserTurn, got {other:?}")
         }
@@ -7101,9 +7098,9 @@ async fn collab_mode_applies_default_preset() {
                     mode: ModeKind::Default,
                     ..
                 }),
-            personality: Some(Personality::Pragmatic),
+            personality,
             ..
-        } => {}
+        } if personality == Some(Personality::pragmatic()) => {}
         other => {
             panic!("expected Op::UserTurn with default collaboration_mode, got {other:?}")
         }
@@ -7119,16 +7116,13 @@ async fn user_turn_includes_personality_from_config() {
     chat.set_feature_enabled(Feature::Personality, /*enabled*/ true);
     chat.thread_id = Some(ThreadId::new());
     chat.set_model("gpt-5.2-codex");
-    chat.set_personality(Personality::Friendly);
+    chat.set_personality(Personality::friendly());
 
     chat.bottom_pane
         .set_composer_text("hello".to_string(), Vec::new(), Vec::new());
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
     match next_submit_op(&mut op_rx) {
-        Op::UserTurn {
-            personality: Some(Personality::Friendly),
-            ..
-        } => {}
+        Op::UserTurn { personality, .. } if personality == Some(Personality::friendly()) => {}
         other => panic!("expected Op::UserTurn with friendly personality, got {other:?}"),
     }
 }
@@ -9601,7 +9595,20 @@ async fn model_selection_popup_snapshot() {
 async fn personality_selection_popup_snapshot() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.2-codex")).await;
     chat.thread_id = Some(ThreadId::new());
-    chat.open_personality_popup();
+    chat.open_personality_popup_with_items(&[
+        codex_app_server_protocol::PersonalityMetadata {
+            name: "friendly".to_string(),
+            description: "Warm, collaborative, and helpful.".to_string(),
+            scope: codex_app_server_protocol::PersonalityScope::Builtin,
+            is_built_in: true,
+        },
+        codex_app_server_protocol::PersonalityMetadata {
+            name: "pragmatic".to_string(),
+            description: "Concise, task-focused, and direct.".to_string(),
+            scope: codex_app_server_protocol::PersonalityScope::Builtin,
+            is_built_in: true,
+        },
+    ]);
 
     let popup = render_bottom_popup(&chat, /*width*/ 80);
     assert_snapshot!("personality_selection_popup", popup);
