@@ -441,6 +441,11 @@ impl PersonalityCatalogCache {
         catalog
     }
 
+    fn clear(&mut self) {
+        self.catalogs.clear();
+        self.lru.clear();
+    }
+
     fn touch(&mut self, cwd: &Path) {
         if let Some(index) = self.lru.iter().position(|entry| entry.as_path() == cwd) {
             self.lru.remove(index);
@@ -656,6 +661,10 @@ impl CodexMessageProcessor {
             .unwrap_or_default()
     }
 
+    async fn clear_personality_catalog_cache(&self) {
+        self.personality_catalogs.lock().await.clear();
+    }
+
     async fn personality_catalog_for_cwd(
         &self,
         cwd: &AbsolutePathBuf,
@@ -665,12 +674,13 @@ impl CodexMessageProcessor {
             return Ok(catalog);
         }
 
+        let cloud_requirements = self.current_cloud_requirements();
         let config_layer_stack = load_config_layers_state(
             &self.config.codex_home,
             Some(cwd.clone()),
             cli_overrides,
             LoaderOverrides::default(),
-            CloudRequirementsLoader::default(),
+            cloud_requirements,
         )
         .await
         .map_err(|err| config_load_error(&err))?;
@@ -1260,6 +1270,7 @@ impl CodexMessageProcessor {
                     let active_login = self.active_login.clone();
                     let auth_manager = self.auth_manager.clone();
                     let cloud_requirements = self.cloud_requirements.clone();
+                    let personality_catalogs = self.personality_catalogs.clone();
                     let chatgpt_base_url = self.config.chatgpt_base_url.clone();
                     let codex_home = self.config.codex_home.clone();
                     let cli_overrides = self.current_cli_overrides();
@@ -1298,6 +1309,7 @@ impl CodexMessageProcessor {
                                 chatgpt_base_url,
                                 codex_home,
                             );
+                            personality_catalogs.lock().await.clear();
                             sync_default_client_residency_requirement(
                                 &cli_overrides,
                                 cloud_requirements.as_ref(),
@@ -1377,6 +1389,7 @@ impl CodexMessageProcessor {
                     let active_login = self.active_login.clone();
                     let auth_manager = self.auth_manager.clone();
                     let cloud_requirements = self.cloud_requirements.clone();
+                    let personality_catalogs = self.personality_catalogs.clone();
                     let chatgpt_base_url = self.config.chatgpt_base_url.clone();
                     let codex_home = self.config.codex_home.clone();
                     let cli_overrides = self.current_cli_overrides();
@@ -1412,6 +1425,7 @@ impl CodexMessageProcessor {
                                 chatgpt_base_url,
                                 codex_home,
                             );
+                            personality_catalogs.lock().await.clear();
                             sync_default_client_residency_requirement(
                                 &cli_overrides,
                                 cloud_requirements.as_ref(),
@@ -1552,6 +1566,7 @@ impl CodexMessageProcessor {
             self.config.chatgpt_base_url.clone(),
             self.config.codex_home.clone(),
         );
+        self.clear_personality_catalog_cache().await;
         let cli_overrides = self.current_cli_overrides();
         sync_default_client_residency_requirement(&cli_overrides, self.cloud_requirements.as_ref())
             .await;
